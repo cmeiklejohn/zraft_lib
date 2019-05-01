@@ -25,13 +25,13 @@
 
 -spec cmd(zraft_consensus:peer_id(),zraft_consensus:rpc_cmd())->ok.
 cmd({Name,Node},Command) when is_atom(Name) andalso is_atom(Node)->
-    gen_fsm:send_event({Name,Node},Command);
+    gen_fsm_compat:send_event({Name,Node},Command);
 cmd({_Name,{_Ref,From}}=Peer,Command)->
     From ! {Peer,Command}.
 
 -spec reply_consensus(zraft_consensus:from_peer_addr(),term())->ok.
 reply_consensus({_,Pid},Reply) when is_pid(Pid)->
-    gen_fsm:send_event(Pid,Reply);
+    gen_fsm_compat:send_event(Pid,Reply);
 reply_consensus({_,{_Ref,Pid}}=Peer,Reply) when is_pid(Pid)->
     Pid ! {Peer,Reply}.
 -spec reply_proxy(zraft_consensus:from_peer_addr(),term())->ok.

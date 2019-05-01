@@ -20,7 +20,7 @@
 -module(zraft_snapshot_receiver).
 -author("dreyk").
 
--behaviour(gen_fsm).
+-behaviour(gen_fsm_compat).
 
 %% API
 -export([start/2]).
@@ -68,12 +68,12 @@
 -record(state, {peer_id,dir, lsock, rsock, fd, size,expected_size, curfile}).
 
 start(PeerID,Dir) ->
-    {ok, Pid} = gen_fsm:start(?MODULE, [PeerID], []),
-    {ok, {Addr, Port}} = gen_fsm:sync_send_event(Pid, {start, Dir}),
+    {ok, Pid} = gen_fsm_compat:start(?MODULE, [PeerID], []),
+    {ok, {Addr, Port}} = gen_fsm_compat:sync_send_event(Pid, {start, Dir}),
     {ok, {{Addr, Port}, Pid}}.
 
 stop(P) ->
-    gen_fsm:sync_send_all_state_event(P, stop).
+    gen_fsm_compat:sync_send_all_state_event(P, stop).
 
 init([PeerID]) ->
     {ok, prepare, #state{peer_id = PeerID}, ?LISTEN_TIMEOUT}.
