@@ -362,7 +362,7 @@ start_replication(State) ->
     #state{peer = Peer, raft = Raft, force_hearbeat = FH, request_timeout = Timeout} = State,
     #peer{next_index = NextIndex, id = PeerID} = Peer,
     PrevIndex = NextIndex - 1,
-    RequestRef = erlang:make_ref(),
+    RequestRef = partisan_util:ref(erlang:make_ref()),
     Req = #append_entries{
         prev_log_index = PrevIndex,
         request_ref = RequestRef,
@@ -377,7 +377,7 @@ replicate(Req, State) ->
     Req1 = add_append(Buffer,Req),
     Req2 = append_flatten(Req1),
     #peer{id = PeerID} = Peer,
-    RequestRef = erlang:make_ref(),
+    RequestRef = partisan_util:ref(erlang:make_ref()),
     #append_entries{commit_index = Commit,prev_log_index = Prev,entries = Entries}=Req2,
     NewCommitIndex = min(Commit,Prev+length(Entries)),
     zraft_peer_route:cmd(
@@ -391,7 +391,7 @@ install_snapshot(Req, State) ->
     #state{peer = Peer,request_timeout = Timeout} = State,
     #peer{id = PeerID} = Peer,
     SnapsotProgress = #snapshot_progress{snapshot_dir = Req#install_snapshot.data, index = Req#install_snapshot.index},
-    RequestRef = erlang:make_ref(),
+    RequestRef = partisan_util:ref(erlang:make_ref()),
     NewReq = Req#install_snapshot{data = start, request_ref = RequestRef, from = from_addr(State)},
     zraft_peer_route:cmd(PeerID, NewReq),
     Timer = zraft_util:gen_server_cast_after(Timeout, request_timeout),
@@ -410,7 +410,7 @@ install_snapshot_hearbeat(Type, State) ->
     } = State,
     #peer{id = PeerID} = Peer,
     #snapshot_progress{index = Index} = Progress,
-    RequestRef = erlang:make_ref(),
+    RequestRef = partisan_util:ref(erlang:make_ref()),
     NewReq = #install_snapshot{
         data = Type,
         request_ref = RequestRef,

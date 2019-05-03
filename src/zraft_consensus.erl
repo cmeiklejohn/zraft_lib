@@ -20,11 +20,11 @@
 -module(zraft_consensus).
 -author("dreyk").
 
--behaviour(gen_fsm_compat).
+% -behaviour(partisan_gen_fsm_zraft).
 
 -include("zraft.hrl").
 
-%% gen_fsm_compat callbacks
+%% partisan_gen_fsm callbacks
 -export([init/1,
     load/2,
     load/3,
@@ -152,7 +152,7 @@
 -spec query_local(peer_id(), term(), timeout()) -> {ok, term()}|{error, term()}.
 query_local(PeerID, Query, Timeout) ->
     Req = #read_request_local{function = read_request, args = [false,Query]},
-    gen_fsm_compat:sync_send_all_state_event(PeerID, Req, Timeout).
+    partisan_gen_fsm:sync_send_all_state_event(PeerID, Req, Timeout).
 
 %% @doc Query data form user backend.
 -spec query(peer_id(), term(), timeout()) -> {ok, term()}|{leader, peer_id()}|{error, timeout}|{error, loading}.
@@ -180,7 +180,7 @@ get_conf(PeerID, Timeout) ->
 -spec write(peer_id(), term(), timeout()) -> {ok,term()}|{leader, peer_id()}|{error, loading}.
 write(PeerID, Data, Timeout) ->
     Req = #write{data = Data},
-    gen_fsm_compat:sync_send_all_state_event(PeerID, Req, Timeout).
+    partisan_gen_fsm:sync_send_all_state_event(PeerID, Req, Timeout).
 
 -spec send_swrite(peer_id()|from_peer_addr(),session_write())->ok.
 send_swrite(Peer,SWrite)->
@@ -190,7 +190,7 @@ send_swrite(Peer,SWrite)->
 -spec write_async(peer_id(), term()) -> ok.
 write_async(PeerID, Data) ->
     Req = #write{data = Data},
-    gen_fsm_compat:send_all_state_event(PeerID, Req).
+    partisan_gen_fsm:send_all_state_event(PeerID, Req).
 
 %% @doc Write data to user backend
 -spec set_new_configuration(peer_id(), index(), list(peer_id()), timeout()) ->
@@ -202,10 +202,10 @@ set_new_configuration(PeerID, PrevID, Peers, Timeout) ->
         timeout = Timeout,
         peers = Peers,
         start_time = Now},
-    gen_fsm_compat:sync_send_all_state_event(PeerID, Req, Timeout).
+    partisan_gen_fsm:sync_send_all_state_event(PeerID, Req, Timeout).
 
 stat(Peer) ->
-    gen_fsm_compat:sync_send_all_state_event(Peer, stat).
+    partisan_gen_fsm:sync_send_all_state_event(Peer, stat).
 %%%===================================================================
 %%% Internal Server API
 %%%===================================================================
@@ -215,11 +215,11 @@ get_election_timeout() ->
 
 -spec start_link(peer_id(), module()) -> {ok, pid()} | {error, {already_started, pid()}} | {error, term()}.
 start_link({Name, _} = PeerID, BackEnd) ->
-    gen_fsm_compat:start_link({local, Name}, ?MODULE, [PeerID, BackEnd], []).
+    partisan_gen_fsm:start_link({local, Name}, ?MODULE, [PeerID, BackEnd], []).
 
 -spec stop(peer_id()) -> ok.
 stop(Peer) ->
-    gen_fsm_compat:sync_send_all_state_event(Peer, stop).
+    partisan_gen_fsm:sync_send_all_state_event(Peer, stop).
 
 -spec replicate_log(Raft, ToPeer, AppendReq) -> ok when
     Raft :: from_peer_addr()|pid(),
@@ -231,7 +231,7 @@ replicate_log(P, ToPeer, AppendReq) ->
 %% @doc Generate initial peer state.
 -spec initial_bootstrap(peer_id()) -> ok.
 initial_bootstrap(P) ->
-    gen_fsm_compat:sync_send_event(P, bootstrap).
+    partisan_gen_fsm:sync_send_event(P, bootstrap).
 
 
 -spec sync_peer(from_peer_addr(),{SyncType::atom(),ConfID::index(),term()}) -> ok.
@@ -258,13 +258,13 @@ truncate_log(Raft, SnapshotInfo) ->
 sync_leader_read_request(PeerID, Function, Args, Timeout) ->
     Now = os:timestamp(),
     Req = #read_request{timeout = Timeout, function = Function, args = Args, start_time = Now},
-    gen_fsm_compat:sync_send_all_state_event(PeerID, Req, Timeout).
+    partisan_gen_fsm:sync_send_all_state_event(PeerID, Req, Timeout).
 
 -spec async_leader_read_request(peer_id(),term(), atom(), list(), timeout()) -> ok.
 async_leader_read_request(PeerID, From,Function, Args, Timeout) ->
     Now = os:timestamp(),
     Req = #read_request{timeout = Timeout, function = Function, args = [{self(),From}|Args], start_time = Now},
-    gen_fsm_compat:send_all_state_event(PeerID,Req).
+    partisan_gen_fsm:send_all_state_event(PeerID,Req).
 
 %%%===================================================================
 %%% Peer lifecycle
@@ -533,6 +533,7 @@ handle_event(#read_request{args = [From|_]}, StateName, State) ->
     reply_caller(From,{leader, current_leader(State)}),
     {next_state,StateName, State};
 handle_event(Req=#write{}, leader, State) ->
+    error_logger:format("[cmeik] node ~p handling write event: ~p", [node(), Req]),
     %%Try replicate new entry.
     %%Response will be sended after entry will be ready to commit
     Entry = new_entry(?OP_DATA,Req,State),
@@ -651,7 +652,7 @@ handle_sync_event(force_timeout, From, StateName, State) ->
                 State#state.timer == undefined ->
                     {reply, false, StateName, State};
                 true ->
-                    gen_fsm_compat:cancel_timer(State#state.timer),
+                    partisan_gen_fsm:cancel_timer(State#state.timer),
                     reply_caller(From, true),
                     ?MODULE:StateName(timeout, State#state{timer = undefined})
             end
@@ -1207,7 +1208,7 @@ hasVote(#state{config = Conf, id = ID}) ->
     end.
 
 proxy_stats(#state{peers = Peers}) ->
-    Ref = make_ref(),
+    Ref = partisan_util:ref(make_ref()),
     From = {Ref, self()},
     Count = lists:foldl(fun({_, P}, Acc) ->
         zraft_peer_proxy:stat(P, From), Acc + 1 end, 0, Peers),
@@ -1264,10 +1265,10 @@ start_timer(State = #state{id = ID, timer = Timer, election_timeout = Timeout}) 
         Timer == undefined ->
             ok;
         true ->
-            gen_fsm_compat:cancel_timer(Timer)
+            partisan_gen_fsm:cancel_timer(Timer)
     end,
     Timeout1 = zraft_util:random(ID, Timeout) + round(1.5*Timeout),
-    NewTimer = gen_fsm_compat:send_event_after(Timeout1, timeout),
+    NewTimer = partisan_gen_fsm:send_event_after(Timeout1, timeout),
     State#state{timer = NewTimer}.
 
 cancel_timer(State = #state{timer = Timer}) ->
@@ -1275,7 +1276,7 @@ cancel_timer(State = #state{timer = Timer}) ->
         Timer == undefined ->
             ok;
         true ->
-            gen_fsm_compat:cancel_timer(Timer)
+            partisan_gen_fsm:cancel_timer(Timer)
     end,
     State#state{timer = undefined}.
 
@@ -1308,6 +1309,7 @@ to_all_peer_direct(Cmd, #state{peers = Peers, id = MyID}) ->
             ({PeerID, _}) when MyID == PeerID ->
                 ok;
             ({PeerID, _}) ->
+                lager:info("[cmeik] node ~p sending command ~p to peer: ~p", [node(), Cmd, PeerID]),
                 zraft_peer_route:cmd(PeerID, Cmd) end, Peers).
 
 to_all_follower_peer(Cmd, #state{peers = Peers, id = MyID}) ->
@@ -1439,16 +1441,16 @@ peer(ID) ->
     {ID, self()}.
 
 send_event(P, Event) when is_pid(P) ->
-    gen_fsm_compat:send_event(P, Event);
+    partisan_gen_fsm:send_event(P, Event);
 send_event({_, P}, Event) ->
-    gen_fsm_compat:send_event(P, Event).
+    partisan_gen_fsm:send_event(P, Event).
 
 send_all_state_event(P, Event) when is_pid(P) ->
-    gen_fsm_compat:send_all_state_event(P, Event);
+    partisan_gen_fsm:send_all_state_event(P, Event);
 send_all_state_event({_, P}, Event) when is_pid(P)->
-    gen_fsm_compat:send_all_state_event(P, Event);
+    partisan_gen_fsm:send_all_state_event(P, Event);
 send_all_state_event(Peer, Event)->
-    gen_fsm_compat:send_all_state_event(Peer, Event).
+    partisan_gen_fsm:send_all_state_event(Peer, Event).
 
 
 print_id(#state{id = ID}) ->
@@ -1462,9 +1464,11 @@ new_entry(Type,Data,#state{log_state = LogState, current_term = Term}) ->
     #entry{term = Term, index = NextIndex, type = Type, data = Data,global_time = zraft_util:now_millisec()}.
 
 reply_caller(From, Msg) when is_pid(From) ->
+    lager:info("[cmeik] node: ~p reply_caller: from: ~p msg: ~p when is_pid", [node(), From, Msg]),
     From ! Msg;
 reply_caller(From, Msg) ->
-    gen_fsm_compat:reply(From,Msg).
+    lager:info("[cmeik] node: ~p reply_caller: from: ~p msg: ~p when NOT is_pid", [node(), From, Msg]),
+    partisan_gen_fsm:reply(From,Msg).
 
 -ifdef(TEST).
 setup_node() ->
@@ -1493,7 +1497,7 @@ bootstrap() ->
         Peer = {test, node()},
         {ok, load, InitState} = init([Peer, zraft_dict_backend]),
         {next_state, follower, State} = init_state(InitState#init_state{snapshot_info = #snapshot_info{}}),
-        {next_state, follower, State1} = follower(bootstrap, {self(), make_ref()}, State),
+        {next_state, follower, State1} = follower(bootstrap, {self(), partisan_util:ref(make_ref())}, State),
         ?assertEqual(1, State1#state.current_term),
         Entries = zraft_fs_log:get_entries(State1#state.log, 1, 1),
         ?assertMatch(

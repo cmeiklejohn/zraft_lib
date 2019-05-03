@@ -25,19 +25,26 @@
 
 -spec cmd(zraft_consensus:peer_id(),zraft_consensus:rpc_cmd())->ok.
 cmd({Name,Node},Command) when is_atom(Name) andalso is_atom(Node)->
-    gen_fsm_compat:send_event({Name,Node},Command);
+    lager:info("[cmeik] send_event: ~p => ~p", [{Name, Node}, Command]),
+    gen_fsm_compat:send_event({Name,Node}, Command); %% TODO: Fix me.
 cmd({_Name,{_Ref,From}}=Peer,Command)->
+    lager:warning("[cmeik] fatal", []),
     From ! {Peer,Command}.
 
 -spec reply_consensus(zraft_consensus:from_peer_addr(),term())->ok.
 reply_consensus({_,Pid},Reply) when is_pid(Pid)->
-    gen_fsm_compat:send_event(Pid,Reply);
+    partisan_gen_fsm:send_event(Pid,Reply);
 reply_consensus({_,{_Ref,Pid}}=Peer,Reply) when is_pid(Pid)->
+    lager:warning("[cmeik] fatal", []),
     Pid ! {Peer,Reply}.
+
 -spec reply_proxy(zraft_consensus:from_peer_addr(),term())->ok.
 reply_proxy({_,Pid},Reply) when is_pid(Pid)->
-    gen_server:cast(Pid,Reply);
+    partisan_gen_server:cast(Pid,Reply);
+reply_proxy({_,{partisan_remote_reference, _, _} = Pid},Reply) ->
+    partisan_gen_server:cast(Pid,Reply);
 reply_proxy({_,{_Ref,Pid}}=Peer,Reply) when is_pid(Pid)->
+    lager:warning("[cmeik] fatal", []),
     Pid ! {Peer,Reply}.
 
 start_peer({Name,Node},BackEnd) when is_atom(Node)->

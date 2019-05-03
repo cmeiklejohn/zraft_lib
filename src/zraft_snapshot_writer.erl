@@ -62,7 +62,7 @@ stop(P)->
     gen_server:call(P,stop).
 
 init([Raft,Fsm,LastIndex,ResultDir,SnapshotDir]) ->
-    DescrRef = make_ref(),
+    DescrRef = partisan_util:ref(make_ref()),
     erlang:monitor(process,Fsm),
     zraft_consensus:make_snapshot_info(Raft,{DescrRef,self()},LastIndex),
     {ok, #state{

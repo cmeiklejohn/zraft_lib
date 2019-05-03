@@ -917,7 +917,7 @@ read_write() ->
         apply_commit(P, [#entry{index = 1, data = #write{data = {1, "1"}}, term = 1, type = ?OP_DATA}]),
         Stat = sys:get_state(P),
         ?assertMatch(#state{last_index = 1, last_snapshot_index = 0, log_count = 1}, Stat),
-        Ref = make_ref(),
+        Ref = partisan_util:ref(make_ref()),
         Me = {self(), Ref},
         cmd(P, #read{from = Me, request = 1}),
         receive
@@ -953,7 +953,7 @@ snapshot() ->
         after 2000 ->
             ?assert(false)
         end,
-        Ref = make_ref(),
+        Ref = partisan_util:ref(make_ref()),
         Me = {self(), Ref},
         cmd(P, #read{from = Me, request = 1}),
         receive

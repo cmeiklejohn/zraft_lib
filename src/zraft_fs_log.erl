@@ -157,7 +157,7 @@ sync(FS)->
     gen_server:cast(FS,sync).
 
 async_work(FS, Command) ->
-    Ref = make_ref(),
+    Ref = partisan_util:ref(make_ref()),
     async_work(FS, {Ref, self()}, Command),
     Ref.
 
