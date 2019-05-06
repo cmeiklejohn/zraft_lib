@@ -1393,6 +1393,7 @@ check_request_timeout(Req, Start, Timeout) ->
             true
     end.
 reset_request(#conf_change_requet{from = From}, Reason) ->
+    lager:info("[cmeik] conf_change_request resulted in reason: ~p", [Reason]),
     reply_caller(From, Reason);
 reset_request(#read_request{args = [From | _]}, Reason) ->
     reply_caller(From, Reason).

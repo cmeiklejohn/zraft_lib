@@ -25,7 +25,7 @@
 
 -spec cmd(zraft_consensus:peer_id(),zraft_consensus:rpc_cmd())->ok.
 cmd({Name,Node},Command) when is_atom(Name) andalso is_atom(Node)->
-    lager:info("[cmeik] send_event: ~p => ~p", [{Name, Node}, Command]),
+    lager:info("[cmeik] send_event: ~p => ~p: ~p", [node(), {Name, Node}, Command]),
     gen_fsm_compat:send_event({Name,Node}, Command); %% TODO: Fix me.
 cmd({_Name,{_Ref,From}}=Peer,Command)->
     lager:warning("[cmeik] fatal", []),

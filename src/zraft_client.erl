@@ -315,15 +315,21 @@ peer_execute(Raft, Fun, Timeout) ->
             peer_execute(Raft, Fun, Start, Timeout)
     end.
 peer_execute(PeerID, Fun, Start, Timeout) ->
+    lager:info("[cmeik] executing command at peer ~p", [PeerID]),
+
     case catch Fun(PeerID) of
         {ok, Result} ->
-            lager:info("[cmeik] executing command at leader with result: ~p", [Result]),
+            lager:info("[cmeik] succcessfully executing command at peer ~p with result ~p", [PeerID, Result]),
             {Result, PeerID};
         {leader, NewLeader} ->
+            lager:info("[cmeik] failed executing command at peer ~p with new leader ~p", [PeerID, NewLeader]),
+
             case zraft_util:is_expired(Start, Timeout) of
                 true ->
+                    lager:info("[cmeik] timeout expired for peer_id: ~p", [PeerID]),
                     {error, timeout};
                 {false, _Timeout1} ->
+                    lager:info("[cmeik] timeout NO expired for peer_id ~p, reissuing to leader: ~p", [PeerID, NewLeader]),
                     peer_execute(NewLeader, Fun, os:timestamp(), Timeout)
             end;
         {error, loading}->
@@ -334,26 +340,35 @@ peer_execute(PeerID, Fun, Start, Timeout) ->
                     peer_execute(PeerID, Fun, os:timestamp(), Timeout)
             end;
         Else ->
+            lager:info("[cmeik] other error for peer_id ~p: ~p", [PeerID, Else]),
             format_error(Else)
     end.
 peer_execute_sessions(Session, Fun, Start, Timeout) ->
     Leader = zraft_session_obj:leader(Session),
+    lager:info("[cmeik] executing command at leader ~p", [Leader]),
+
     Next = case catch Fun(Leader) of
                {ok, Result} ->
+                   lager:info("[cmeik] succcessfully executing command at leader ~p with result ~p", [Leader, Result]),
                    {Result, Session};
                {leader, NewLeader} when NewLeader /= undefined ->
+                   lager:info("[cmeik] new leader: ~p", [NewLeader]),
                    case zraft_session_obj:change_leader(NewLeader, Session) of
                        {error, etimeout} ->
+                           lager:info("[cmeik] leader changed: ~p", [NewLeader]),
                            timer:sleep(zraft_consensus:get_election_timeout()),
                            {continue, Session};
                        {error, all_failed} ->
+                           lager:info("[cmeik] leader change failed: ~p", [NewLeader]),
                            {error, all_failed};
                        Session1 ->
+                           lager:info("[cmeik] new session, leader: ~p", [NewLeader]),
                            {continue, Session1}
                    end;
                {error, loading}->
                    {continue, Session};
                _Else ->
+                   lager:info("[cmeik] general failure: ~p", [_Else]),
                    case zraft_session_obj:fail(Session) of
                        {error, Err} ->
                            {error, Err};

@@ -299,7 +299,7 @@ make_result(Result, State = #fs{last_conf = Conf}) ->
 
 append_entry(PrevIndex, _PrevTerm, _ToCommitIndex, _Entries, State = #fs{last_index = LastIndex})
     when PrevIndex > LastIndex ->
-    lager:warning("Rejecting AppendEntries RPC: would leave gap ~p>~p", [PrevIndex, LastIndex]),
+    lager:warning("Rejecting AppendEntries RPC at node ~p: would leave gap ~p>~p", [node(), PrevIndex, LastIndex]),
     {ok, {false, LastIndex}, State};
 append_entry(PrevIndex, PrevTerm, ToCommitIndex, Entries0, State) ->
     #fs{first_index = FirstIndex,
@@ -879,7 +879,7 @@ read_meta_file(FileName) ->
                     {error, badformat}
             end;
         Else ->
-            lager:error("Can't read metafile ~s:~p", [FileName, Else]),
+            % lager:error("Can't read metafile ~s:~p", [FileName, Else]),
             Else
     end.
 
