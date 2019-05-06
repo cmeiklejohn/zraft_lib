@@ -340,7 +340,7 @@ peer_execute(PeerID, Fun, Start, Timeout) ->
                     peer_execute(PeerID, Fun, os:timestamp(), Timeout)
             end;
         Else ->
-            lager:info("[cmeik] other error for peer_id ~p: ~p", [PeerID, Else]),
+            lager:info("[cmeik] executed command at peer ~p error: ~p", [PeerID, Else]),
             format_error(Else)
     end.
 peer_execute_sessions(Session, Fun, Start, Timeout) ->
