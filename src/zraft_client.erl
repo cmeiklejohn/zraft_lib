@@ -315,11 +315,14 @@ peer_execute(Raft, Fun, Timeout) ->
             peer_execute(Raft, Fun, Start, Timeout)
     end.
 peer_execute(PeerID, Fun, Start, Timeout) ->
+    lager:info("[cmeik] executing command at peer: ~p", [PeerID]),
+
     case catch Fun(PeerID) of
         {ok, Result} ->
-            lager:info("[cmeik] executing command at leader with result: ~p", [Result]),
+            lager:info("[cmeik] executed command at leader with result: ~p", [Result]),
             {Result, PeerID};
         {leader, NewLeader} ->
+            lager:info("[cmeik] executed command at peer ~p new_leader: ~p", [PeerID, NewLeader]),
             case zraft_util:is_expired(Start, Timeout) of
                 true ->
                     {error, timeout};
@@ -334,6 +337,7 @@ peer_execute(PeerID, Fun, Start, Timeout) ->
                     peer_execute(PeerID, Fun, os:timestamp(), Timeout)
             end;
         Else ->
+            lager:info("[cmeik] executed command at peer ~p error: ~p", [PeerID, Else]),
             format_error(Else)
     end.
 peer_execute_sessions(Session, Fun, Start, Timeout) ->

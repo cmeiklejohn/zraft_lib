@@ -180,6 +180,7 @@ get_conf(PeerID, Timeout) ->
 -spec write(peer_id(), term(), timeout()) -> {ok,term()}|{leader, peer_id()}|{error, loading}.
 write(PeerID, Data, Timeout) ->
     Req = #write{data = Data},
+    lager:info("[cmeik] write request at node: ~p for peer_id: ~p data: ~p", [node(), PeerID, Data]),
     partisan_gen_fsm:sync_send_all_state_event(PeerID, Req, Timeout).
 
 -spec send_swrite(peer_id()|from_peer_addr(),session_write())->ok.
@@ -190,6 +191,7 @@ send_swrite(Peer,SWrite)->
 -spec write_async(peer_id(), term()) -> ok.
 write_async(PeerID, Data) ->
     Req = #write{data = Data},
+    lager:info("[cmeik] write request at node: ~p", [node()]),
     partisan_gen_fsm:send_all_state_event(PeerID, Req).
 
 %% @doc Write data to user backend
@@ -544,6 +546,7 @@ handle_event(Req=#swrite{}, leader, State) ->
     State1 = append([Entry], State),
     {next_state, leader, State1};
 handle_event(#write{}, StateName, State) ->
+    lager:info("[cmeik] node ~p handling write event", [node()]),
     %%Ignore request
     {next_state, StateName, State};
 handle_event(#swrite{from = From,message_id = Seq}, StateName, State) ->
