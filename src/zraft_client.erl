@@ -340,6 +340,7 @@ peer_execute_sessions(Session, Fun, Start, Timeout) ->
     Next = case catch Fun(Leader) of
                {ok, Result} ->
                    {Result, Session};
+               %% Former leader isn't the leader, they know who the new one is!
                {leader, NewLeader} when NewLeader /= undefined ->
                    case zraft_session_obj:change_leader(NewLeader, Session) of
                        {error, etimeout} ->
@@ -352,6 +353,15 @@ peer_execute_sessions(Session, Fun, Start, Timeout) ->
                    end;
                {error, loading}->
                    {continue, Session};
+               %% Former leader isn't the leader, they've failed and can't
+               %% tell us who the new one is!
+               {'EXIT', noproc} ->
+                   case zraft_session_obj:find_leader(Session) of 
+                       {error, Err} ->
+                           {error, Err};
+                       Session3 ->
+                           {continue, Session3}
+                   end;
                _Else ->
                    case zraft_session_obj:fail(Session) of
                        {error, Err} ->
